@@ -102,6 +102,18 @@ function mongoDump(options, directory, callback) {
     mongoOptions.push('-p');
     mongoOptions.push(options.password);
   }
+  
+  if(options.authenticationDatabase) {
+    mongoOptions.push('--authenticationDatabase');
+    mongoOptions.push(options.authenticationDatabase);
+  }
+  
+  if(options.excludeCollection) {
+    options.excludeCollection.forEach(function(collection) {
+      mongoOptions.push('--excludeCollection');
+      mongoOptions.push(collection);
+    });
+  }
 
   log('Starting mongodump of ' + options.db, 'info');
   mongodump = spawn('mongodump', mongoOptions);
