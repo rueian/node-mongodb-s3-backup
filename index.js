@@ -102,12 +102,12 @@ function mongoDump(options, directory, callback) {
     mongoOptions.push('-p');
     mongoOptions.push(options.password);
   }
-  
+
   if(options.authenticationDatabase) {
     mongoOptions.push('--authenticationDatabase');
     mongoOptions.push(options.authenticationDatabase);
   }
-  
+
   if(options.excludeCollection) {
     options.excludeCollection.forEach(function(collection) {
       mongoOptions.push('--excludeCollection');
@@ -187,8 +187,10 @@ function compressDirectory(directory, input, output, callback) {
  */
 function sendToS3(options, directory, target, callback) {
   var knox = require('knox')
+    , MultiPartUpload = require('knox-mpu')
     , sourceFile = path.join(directory, target)
     , s3client
+    , upload
     , destination = options.destination || '/'
     , headers = {};
 
@@ -202,28 +204,21 @@ function sendToS3(options, directory, target, callback) {
     headers = {"x-amz-server-side-encryption": "AES256"}
 
   log('Attemping to upload ' + target + ' to the ' + options.bucket + ' s3 bucket');
-  s3client.putFile(sourceFile, path.join(destination, target), headers, function(err, res){
+  upload = new MultiPartUpload({
+    client: s3client,
+    objectName: path.join(destination, target),
+    headers: headers,
+    file: sourceFile,
+    partSize: 10485760,
+    maxRetries: 2
+  }, function(err, body) {
     if(err) {
       return callback(err);
     }
 
-    res.setEncoding('utf8');
-
-    res.on('data', function(chunk){
-      if(res.statusCode !== 200) {
-        log(chunk, 'error');
-      } else {
-        log(chunk);
-      }
-    });
-
-    res.on('end', function(chunk) {
-      if (res.statusCode !== 200) {
-        return callback(new Error('Expected a 200 response from S3, got ' + res.statusCode));
-      }
-      log('Successfully uploaded to s3');
-      return callback();
-    });
+    log('Successfully uploaded to s3');
+    log(JSON.stringify(body));
+    return callback();
   });
 }
 
